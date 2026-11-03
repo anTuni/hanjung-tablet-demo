@@ -1,0 +1,326 @@
+<!doctype html><html lang="ko"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#14171c"><link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon-192.png"><link rel="apple-touch-icon" href="icon-192.png">
+<style>:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0}[hidden]{display:none!important}</style>
+</head><body><title>한중 차량 운행 단말</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;900&family=IBM+Plex+Mono:wght@500;600&display=swap">
+<style>
+/* 레이아웃: 가로 태블릿(갤럭시 탭 S6 1280×800) 한 화면 — 상단 상태 줄 · 왼쪽 주 동작 · 오른쪽 기록/전송 */
+:root{
+  --bg:#f4f5f7; --surface:#ffffff; --line:#e1e4e9; --ink:#14171c; --ink2:#4a515c; --ink3:#858c97;
+  --run:#1f7a3f; --run-soft:#e6f4ea; --stop:#b42318; --stop-soft:#fdecea; --wait:#b45309; --wait-soft:#fdf3e1;
+  --key:#eef0f3; --key-press:#dfe3e8;
+  --f-body:"Noto Sans KR",-apple-system,"Apple SD Gothic Neo",system-ui,sans-serif;
+  --f-num:"IBM Plex Mono",ui-monospace,"SF Mono",Menlo,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0f1114; --surface:#181b20; --line:#2a2f37; --ink:#eef0f3; --ink2:#b4bac4; --ink3:#7d8591;
+  --run:#4ade80; --run-soft:#12301d; --stop:#f87171; --stop-soft:#3a1616; --wait:#fbbf24; --wait-soft:#3a2a0c;
+  --key:#23272e; --key-press:#2f343c; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0f1114; --surface:#181b20; --line:#2a2f37; --ink:#eef0f3; --ink2:#b4bac4; --ink3:#7d8591;
+  --run:#4ade80; --run-soft:#12301d; --stop:#f87171; --stop-soft:#3a1616; --wait:#fbbf24; --wait-soft:#3a2a0c;
+  --key:#23272e; --key-press:#2f343c; color-scheme:dark}
+html,body{height:100%}
+body{background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:15px;-webkit-tap-highlight-color:transparent;user-select:none;overscroll-behavior:none}
+.app{height:100%;display:grid;grid-template-rows:auto 1fr;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:12px;gap:12px;box-sizing:border-box;max-width:1400px;margin:0 auto}
+button{font:inherit;color:inherit;cursor:pointer;border:0;background:none}
+button:focus-visible,input:focus-visible{outline:3px solid var(--ink3);outline-offset:2px}
+.num{font-family:var(--f-num);font-variant-numeric:tabular-nums}
+
+/* 상단 상태 줄 */
+.bar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:10px 14px}
+.bar .plate{font-weight:900;font-size:20px;letter-spacing:.02em}
+.bar .sp{flex:1}
+.chip{display:inline-flex;align-items:center;gap:6px;border-radius:999px;padding:5px 11px;font-size:13px;font-weight:700;background:var(--key);color:var(--ink2);white-space:nowrap}
+.chip i{width:8px;height:8px;border-radius:50%;background:var(--ink3)}
+.chip.on{background:var(--run-soft);color:var(--run)}.chip.on i{background:var(--run)}
+.chip.off{background:var(--stop-soft);color:var(--stop)}.chip.off i{background:var(--stop)}
+.chip.warn{background:var(--wait-soft);color:var(--wait)}.chip.warn i{background:var(--wait)}
+.chip.pulse i{animation:pulse 1.4s ease-in-out infinite}
+@keyframes pulse{50%{opacity:.25}}
+.tog{display:inline-flex;align-items:center;gap:8px;font-size:13px;color:var(--ink2);padding:4px 6px;border-radius:8px}
+.tog .sw{width:38px;height:22px;border-radius:11px;background:var(--line);position:relative;transition:background .2s}
+.tog .sw::after{content:"";position:absolute;top:3px;left:3px;width:16px;height:16px;border-radius:50%;background:var(--surface);transition:transform .2s;box-shadow:0 1px 2px rgba(0,0,0,.2)}
+.tog[aria-pressed="true"] .sw{background:var(--stop)}.tog[aria-pressed="true"] .sw::after{transform:translateX(16px)}
+
+/* 본문 */
+.main{display:grid;grid-template-columns:minmax(0,1.35fr) minmax(0,1fr);gap:12px;min-height:0}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:20px 22px;min-width:0;min-height:0;display:flex;flex-direction:column;gap:14px;overflow:auto}
+.eyebrow{font-size:12.5px;letter-spacing:.08em;color:var(--ink3);font-weight:700}
+h1{margin:0;font-size:26px;font-weight:900;letter-spacing:-.01em;text-wrap:balance}
+.lead{margin:0;color:var(--ink2);font-size:15px;line-height:1.55}
+
+/* 사번 입력 */
+.idrow{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.1fr);gap:20px;align-items:stretch;flex:1}
+.vcard{border:1px solid var(--line);border-radius:14px;padding:16px 18px;display:flex;flex-direction:column;gap:6px}
+.vcard .big{font-size:34px;font-weight:900;letter-spacing:.02em}
+.vcard .meta{font-size:13.5px;color:var(--ink2);line-height:1.6}
+.link{color:var(--ink2);font-size:13.5px;text-decoration:underline;text-underline-offset:3px;padding:6px 0;align-self:flex-start}
+.digits{display:flex;gap:8px;justify-content:center;margin:2px 0 4px}
+.digits span{width:44px;height:54px;border-radius:10px;border:1.5px solid var(--line);display:grid;place-items:center;font-family:var(--f-num);font-size:26px;font-weight:600}
+.digits span.f{border-color:var(--ink)}
+.pad{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.pad button{height:58px;border-radius:12px;background:var(--key);font-family:var(--f-num);font-size:24px;font-weight:600}
+.pad button:active{background:var(--key-press)}
+.pad .fn{font-family:var(--f-body);font-size:15px;font-weight:700;color:var(--ink2)}
+.cta{height:68px;border-radius:14px;font-size:21px;font-weight:900;letter-spacing:.02em;background:var(--ink);color:var(--surface);width:100%}
+.cta:disabled{opacity:.3;cursor:default}
+.cta.stop{background:var(--stop);color:#fff}
+.hint{font-size:12.5px;color:var(--ink3);line-height:1.55;margin:0}
+
+/* 운행 중 */
+.runhead{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.clock{font-family:var(--f-num);font-size:64px;font-weight:600;letter-spacing:-.02em;line-height:1}
+.stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
+.stat{background:var(--bg);border-radius:12px;padding:10px 12px;min-width:0}
+.stat .k{font-size:12px;color:var(--ink3)}.stat .v{font-size:19px;font-weight:700;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.track{flex:1;min-height:150px;border-radius:12px;background:var(--bg);position:relative;overflow:hidden}
+.track canvas{position:absolute;inset:0;width:100%;height:100%}
+.track .tl{position:absolute;left:10px;bottom:8px;font-size:12px;color:var(--ink3)}
+.acts{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+.act{height:62px;border-radius:12px;border:1.5px solid var(--line);font-weight:700;font-size:16px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px}
+.act small{font-weight:400;font-size:12px;color:var(--ink3)}
+.act:active{background:var(--key)}
+
+/* 오른쪽 기록 */
+.log{display:flex;flex-direction:column;gap:8px}
+.ev{display:grid;grid-template-columns:58px minmax(0,1fr) auto;gap:10px;align-items:baseline;padding:9px 0;border-bottom:1px dashed var(--line);font-size:14px}
+.ev:last-child{border-bottom:0}
+.ev .t{font-family:var(--f-num);color:var(--ink3);font-size:13px}
+.ev .s{font-size:12px;font-weight:700;border-radius:999px;padding:2px 8px;background:var(--key);color:var(--ink2);white-space:nowrap}
+.ev .s.q{background:var(--wait-soft);color:var(--wait)}.ev .s.ok{background:var(--run-soft);color:var(--run)}
+.empty{color:var(--ink3);font-size:14px;line-height:1.6;padding:8px 0}
+.sync{border:1px solid var(--line);border-radius:12px;padding:12px 14px;display:flex;flex-direction:column;gap:8px}
+.sync .row{display:flex;justify-content:space-between;gap:10px;font-size:14px}
+.sync .row span:first-child{color:var(--ink2)}
+.prog{height:6px;border-radius:3px;background:var(--key);overflow:hidden}.prog i{display:block;height:100%;width:0;background:var(--run);transition:width .3s}
+.btn2{height:44px;border-radius:10px;background:var(--key);font-weight:700;font-size:14px}
+.btn2:disabled{opacity:.4;cursor:default}
+
+/* 시트(선택 · 확인) */
+.sheet{position:fixed;inset:0;background:rgba(10,12,15,.45);display:grid;place-items:center;z-index:20;padding:16px}
+.sheet .box{background:var(--surface);border-radius:18px;padding:22px 24px;width:min(560px,100%);display:flex;flex-direction:column;gap:14px;max-height:90vh;overflow:auto}
+.sheet h2{margin:0;font-size:22px;font-weight:900}
+.opts{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.opts button{height:60px;border-radius:12px;border:1.5px solid var(--line);font-size:17px;font-weight:700}
+.opts button.sel{border-color:var(--ink);background:var(--key)}
+.sumgrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.sheet .two{display:grid;grid-template-columns:1fr 1.4fr;gap:10px}
+.sheet .two button{height:58px;border-radius:12px;font-size:17px;font-weight:700;background:var(--key)}
+.sheet .two .go{background:var(--ink);color:var(--surface)}
+.sheet .two .go.stop{background:var(--stop);color:#fff}
+.field{height:58px;border-radius:12px;border:1.5px solid var(--line);background:var(--bg);color:var(--ink);font:inherit;font-size:24px;font-weight:700;padding:0 14px;width:100%;box-sizing:border-box;user-select:text}
+.toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--surface);padding:12px 18px;border-radius:12px;font-weight:700;font-size:15px;z-index:30;max-width:calc(100% - 32px)}
+
+@media (max-width:860px){
+  .main{grid-template-columns:minmax(0,1fr)}
+  .idrow{grid-template-columns:minmax(0,1fr)}
+  .stats{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .clock{font-size:48px}
+  .app{height:auto;min-height:100%}
+}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+
+<div class="app" id="app">
+  <header class="bar" id="bar"></header>
+  <div class="main">
+    <section class="panel" id="left"></section>
+    <aside class="panel" id="right"></aside>
+  </div>
+</div>
+<div id="layer"></div>
+
+<script>
+(()=>{
+// ───── 저장(기기 안) ─────
+const KEY='hj-tablet-v1';
+const load=()=>{ try{ return JSON.parse(localStorage.getItem(KEY))||null; }catch(e){ return null; } };
+const save=()=>{ try{ localStorage.setItem(KEY,JSON.stringify(S)); }catch(e){} };
+const seed=()=>({
+  plate:'경북06보1234', since:Date.now()-86400000*12, net:true, lastSync:Date.now()-3600*1000*2,
+  run:null, queue:[], sent:[
+    {id:'r-ex1', plate:'경북06보1234', emp:'204118', shift:'1근', start:(()=>{const d=new Date();d.setDate(d.getDate()-1);d.setHours(6,48,0,0);return d.getTime();})(), end:(()=>{const d=new Date();d.setDate(d.getDate()-1);d.setHours(14,43,0,0);return d.getTime();})(), km:131.2, pts:5632, waits:2, maint:0, swaps:0, ex:true}
+  ], events:[]
+});
+let S=load()||seed();
+const $=id=>document.getElementById(id);
+const pad2=n=>String(n).padStart(2,'0');
+const hm=t=>{ const d=new Date(t); return pad2(d.getHours())+':'+pad2(d.getMinutes()); };
+const hms=t=>{ const d=new Date(t); return hm(t)+':'+pad2(d.getSeconds()); };
+const dur=ms=>{ const s=Math.max(0,Math.floor(ms/1000)); return pad2(Math.floor(s/3600))+':'+pad2(Math.floor(s/60)%60)+':'+pad2(s%60); };
+const durKo=ms=>{ const m=Math.round(ms/60000); return (m>=60?Math.floor(m/60)+'시간 ':'')+(m%60)+'분'; };
+const shiftOf=t=>{ const h=new Date(t).getHours(); return h>=7&&h<15?'1근':h>=15&&h<23?'2근':'3근'; };
+const toast=msg=>{ const d=document.createElement('div'); d.className='toast'; d.textContent=msg; document.body.appendChild(d); setTimeout(()=>d.remove(),2200); };
+const log=(text,tag)=>{ S.events.unshift({t:Date.now(),text,tag}); S.events=S.events.slice(0,40); };
+
+// ───── GPS: 기기 GPS가 되면 그것을, 안 되면 시연 경로(4고로 2수재 ↔ 해송야드) ─────
+const ROUTE=[[36.02435,129.38605],[36.0251,129.3893],[36.0262,129.3936],[36.0276,129.3985],[36.0287,129.4028],[36.02947,129.40578]];
+const GEOF=[{n:'4고로 2수재',p:ROUTE[0],r:60},{n:'해송야드',p:ROUTE[5],r:90}];
+let gps={src:'시연 경로',watch:null,simT:0,simDir:1,inside:null};
+const distM=(a,b)=>{ const R=6371000,toR=Math.PI/180; const dLa=(b[0]-a[0])*toR,dLo=(b[1]-a[1])*toR; const x=Math.sin(dLa/2)**2+Math.cos(a[0]*toR)*Math.cos(b[0]*toR)*Math.sin(dLo/2)**2; return 2*R*Math.asin(Math.sqrt(x)); };
+const simPoint=()=>{ const segs=ROUTE.length-1; gps.simT+=gps.simDir*0.06; if(gps.simT>=segs){gps.simT=segs;gps.simDir=-1;} if(gps.simT<=0){gps.simT=0;gps.simDir=1;} const i=Math.min(segs-1,Math.floor(gps.simT)), f=gps.simT-i; const a=ROUTE[i], b=ROUTE[i+1]; return [a[0]+(b[0]-a[0])*f+(Math.random()-.5)*0.00004, a[1]+(b[1]-a[1])*f+(Math.random()-.5)*0.00004]; };
+const addPoint=(p)=>{ const r=S.run; if(!r) return; const last=r.track[r.track.length-1]; if(last) r.km+=distM(last,p)/1000; r.track.push(p); if(r.track.length>400) r.track.splice(0,r.track.length-400); r.pts++; r.lastFix=Date.now();
+  const g=GEOF.find(g=>distM(g.p,p)<=g.r); const n=g?g.n:null; if(n!==gps.inside){ if(n){ log(n+' 도착','지점'); r.stops++; } else if(gps.inside){ log(gps.inside+' 출발','지점'); } gps.inside=n; } };
+let simTimer=null;
+const startGps=()=>{ stopGps(); gps.inside=null;
+  if(navigator.geolocation){ try{ gps.watch=navigator.geolocation.watchPosition(pos=>{ gps.src='기기 GPS'; if(simTimer){clearInterval(simTimer);simTimer=null;} addPoint([pos.coords.latitude,pos.coords.longitude]); },()=>{},{enableHighAccuracy:true,maximumAge:2000,timeout:15000}); }catch(e){} }
+  simTimer=setInterval(()=>{ if(gps.src==='기기 GPS') return; addPoint(simPoint()); },2000); };
+const stopGps=()=>{ if(gps.watch!=null){ try{navigator.geolocation.clearWatch(gps.watch);}catch(e){} gps.watch=null; } if(simTimer){clearInterval(simTimer);simTimer=null;} };
+let wake=null; const keepAwake=async on=>{ try{ if(on&&navigator.wakeLock&&!wake){ wake=await navigator.wakeLock.request('screen'); } if(!on&&wake){ await wake.release(); wake=null; } }catch(e){} };
+
+// ───── 전송(사무실 연결 시 자동) — 서버 전송은 시연용 모의 처리 ─────
+let syncing=false;
+const online=()=>S.net&&(navigator.onLine!==false);
+const trySync=()=>{ if(syncing||!online()||!S.queue.length) return; syncing=true; render();
+  let k=0; const n=S.queue.length; const step=()=>{ k++; const bar=document.querySelector('#syncProg i'); if(bar) bar.style.width=(100*k/n)+'%';
+    if(k<n){ setTimeout(step,500); return; }
+    setTimeout(()=>{ S.sent=S.queue.concat(S.sent).slice(0,30); S.queue=[]; S.lastSync=Date.now(); syncing=false; log(n+'건 서버 전송 완료','전송'); save(); render(); toast(n+'건 서버로 전송했습니다'); },400); };
+  setTimeout(step,500); };
+addEventListener('online',()=>{ render(); trySync(); }); addEventListener('offline',()=>render());
+
+// ───── 동작 ─────
+let emp='';
+const startRun=()=>{ const now=Date.now();
+  S.run={id:'r-'+now, plate:S.plate, emp, shift:shiftOf(now), start:now, km:0, pts:0, track:[], lastFix:null, stops:0, waits:[], maint:[], swaps:[]};
+  log('운행 시작 · 사번 '+emp,'시작'); emp=''; save(); startGps(); keepAwake(true); render(); };
+const endRun=()=>{ const r=S.run; if(!r) return; stopGps(); keepAwake(false); r.end=Date.now();
+  const rec={id:r.id,plate:r.plate,emp:r.emp,shift:r.shift,start:r.start,end:r.end,km:+r.km.toFixed(1),pts:r.pts,waits:r.waits.length,maint:r.maint.length,swaps:r.swaps.length};
+  S.queue.unshift(rec); S.run=null; log('운행 종료 · '+durKo(rec.end-rec.start)+' · '+rec.km+'km','종료'); save(); render();
+  if(online()) setTimeout(trySync,600); else toast('기기에 저장했습니다. 사무실에서 연결되면 전송됩니다'); };
+
+// ───── 화면 ─────
+const bar=()=>{ const r=S.run, q=S.queue.length;
+  const net=online()?`<span class="chip on"><i></i>온라인</span>`:`<span class="chip off"><i></i>오프라인 · 기기에 저장 중</span>`;
+  const st=r?`<span class="chip on pulse"><i></i>운행 중 · GPS 수집</span>`:`<span class="chip"><i></i>대기</span>`;
+  const qq=syncing?`<span class="chip warn pulse"><i></i>전송 중</span>`:(q?`<span class="chip warn"><i></i>미전송 ${q}건</span>`:`<span class="chip"><i></i>미전송 없음</span>`);
+  return `<span class="plate">${S.plate}</span>${st}<span class="sp"></span>${net}${qq}
+    <button class="tog" id="netTog" aria-pressed="${!S.net}" title="네트워크 끊김 시연"><span class="sw"></span>네트워크 끊김 시연</button>`; };
+
+const idle=()=>{ const d=[...Array(6)].map((_,i)=>`<span class="${emp[i]?'f':''}">${emp[i]||''}</span>`).join('');
+  const keys=['1','2','3','4','5','6','7','8','9','지움','0','전체 지움'].map(k=>`<button data-k="${k}" class="${k.length>1?'fn':''}" aria-label="${k}">${k}</button>`).join('');
+  return `<div class="eyebrow">운행 시작</div><h1>사번을 누르고 운행을 시작하세요</h1>
+  <div class="idrow">
+    <div style="display:flex;flex-direction:column;gap:12px;min-width:0">
+      <div class="vcard"><div class="eyebrow">이 단말의 차량</div><div class="big">${S.plate}</div>
+        <div class="meta">등록 ${new Date(S.since).toLocaleDateString('ko-KR')} · 근무조 자동: 지금 ${shiftOf(Date.now())}</div>
+        <button class="link" id="chgPlate">차량 변경(관리자)</button></div>
+      <p class="hint">시동을 켜고 사번만 입력하면 위치가 자동으로 수집됩니다. 통신이 끊긴 곳에서도 기록은 기기에 쌓였다가 사무실 Wi-Fi에 연결되면 서버로 전송됩니다.</p>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:10px;min-width:0">
+      <div class="digits" aria-label="입력한 사번">${d}</div>
+      <div class="pad" id="pad">${keys}</div>
+      <button class="cta" id="startBtn" ${emp.length===6?'':'disabled'}>운행 시작</button>
+    </div>
+  </div>`; };
+
+const running=()=>{ const r=S.run, now=Date.now();
+  return `<div class="runhead"><div><div class="eyebrow">운행 중 · ${r.shift} · 사번 ${r.emp}</div><div class="clock num" id="clock">${dur(now-r.start)}</div></div>
+    <div style="text-align:right"><div class="eyebrow">시작</div><div class="num" style="font-size:22px;font-weight:600">${hms(r.start)}</div></div></div>
+  <div class="stats">
+    <div class="stat"><div class="k">주행 거리</div><div class="v num" id="sKm">${r.km.toFixed(1)} km</div></div>
+    <div class="stat"><div class="k">위치 기록</div><div class="v num" id="sPts">${r.pts}개</div></div>
+    <div class="stat"><div class="k">마지막 수신</div><div class="v num" id="sFix">${r.lastFix?hms(r.lastFix):'대기'}</div></div>
+    <div class="stat"><div class="k">위치 출처</div><div class="v" id="sSrc">${gps.src}</div></div>
+  </div>
+  <div class="track"><canvas id="trk"></canvas><span class="tl">이동 경로 · 4고로 2수재 ↔ 해송야드(시연 경로)</span></div>
+  <div class="acts">
+    <button class="act" id="aWait">대기 사유<small>${r.waits.length?r.waits.length+'건 기록':'상차·계량·하차'}</small></button>
+    <button class="act" id="aMaint">정비 기록<small>${r.maint.length?r.maint.length+'건 기록':'부위 선택'}</small></button>
+    <button class="act" id="aSwap">기사 교대<small>${r.swaps.length?r.swaps.length+'회':'대차 · 사번 변경'}</small></button>
+  </div>
+  <button class="cta stop" id="endBtn">운행 종료</button>`; };
+
+const right=()=>{ const q=S.queue, sent=S.sent.slice(0,4);
+  const rec=(x,tag)=>`<div class="ev"><span class="t">${hm(x.start)}</span><span>${x.shift} · 사번 ${x.emp} · ${durKo(x.end-x.start)} · ${x.km}km${x.ex?' <span style="color:var(--ink3)">(어제 · 예시)</span>':''}</span><span class="s ${tag==='q'?'q':'ok'}">${tag==='q'?'전송 대기':'전송 완료'}</span></div>`;
+  const evs=S.events.slice(0,6).map(e=>`<div class="ev"><span class="t">${hm(e.t)}</span><span>${e.text}</span><span class="s">${e.tag}</span></div>`).join('');
+  return `<div class="eyebrow">기기 기록 · 서버 전송</div>
+  <div class="sync">
+    <div class="row"><span>연결</span><b>${online()?'온라인(사무실 Wi-Fi)':'오프라인'}</b></div>
+    <div class="row"><span>미전송</span><b class="num">${q.length}건</b></div>
+    <div class="row"><span>마지막 전송</span><b class="num">${S.lastSync?hm(S.lastSync):'-'}</b></div>
+    <div class="prog" id="syncProg"><i style="width:${syncing?'5%':'0'}"></i></div>
+    <button class="btn2" id="syncBtn" ${(!online()||!q.length||syncing)?'disabled':''}>${syncing?'전송 중':'지금 전송'}</button>
+  </div>
+  <div class="log">${q.map(x=>rec(x,'q')).join('')}${sent.map(x=>rec(x,'ok')).join('')||''}</div>
+  <div class="eyebrow" style="margin-top:4px">오늘 이벤트</div>
+  <div class="log">${evs||'<div class="empty">운행을 시작하면 지점 도착·출발, 대기 사유, 정비 기록이 여기에 쌓입니다.</div>'}</div>
+  <p class="hint">서버 전송은 시연용 모의 처리입니다. 실제 앱은 운행일보(MES 보정)와 차량 위치 테이블로 보냅니다.</p>`; };
+
+const render=()=>{ $('bar').innerHTML=bar(); $('left').innerHTML=S.run?running():idle(); $('right').innerHTML=right(); bind(); if(S.run) drawTrack(); };
+
+// ───── 시트 ─────
+const sheet=html=>{ $('layer').innerHTML=`<div class="sheet" id="sh"><div class="box">${html}</div></div>`; $('sh').addEventListener('click',e=>{ if(e.target.id==='sh') close(); }); };
+const close=()=>{ $('layer').innerHTML=''; };
+const choose=(title,opts,onPick)=>{ let sel=null; sheet(`<h2>${title}</h2><div class="opts">${opts.map(o=>`<button data-o="${o}">${o}</button>`).join('')}</div><div class="two"><button id="shX">취소</button><button class="go" id="shOk" disabled>기록</button></div>`);
+  document.querySelectorAll('.opts button').forEach(b=>b.onclick=()=>{ sel=b.dataset.o; document.querySelectorAll('.opts button').forEach(x=>x.classList.toggle('sel',x===b)); $('shOk').disabled=false; });
+  $('shX').onclick=close; $('shOk').onclick=()=>{ close(); onPick(sel); }; };
+const askPin=next=>{ let pin=''; const draw=()=>{ sheet(`<h2>관리자 확인</h2><p class="lead">차량 변경은 관리자만 할 수 있습니다. 관리자 번호 4자리(시연: 0000)</p>
+  <div class="digits">${[0,1,2,3].map(i=>`<span class="${pin[i]?'f':''}">${pin[i]?'•':''}</span>`).join('')}</div>
+  <div class="pad">${['1','2','3','4','5','6','7','8','9','취소','0','지움'].map(k=>`<button data-k="${k}" class="${k.length>1?'fn':''}">${k}</button>`).join('')}</div>`);
+  document.querySelectorAll('#sh .pad button').forEach(b=>b.onclick=()=>{ const k=b.dataset.k; if(k==='취소'){close();return;} if(k==='지움') pin=pin.slice(0,-1); else if(pin.length<4) pin+=k; if(pin.length===4){ if(pin==='0000'){ close(); next(); return; } pin=''; toast('관리자 번호가 맞지 않습니다'); } draw(); }); }; draw(); };
+const editPlate=()=>{ sheet(`<h2>차량 변경</h2><p class="lead">단말을 다른 차량으로 옮겼을 때 새 차량번호를 입력합니다. 저장하면 다음 운행부터 새 번호로 기록됩니다.</p>
+  <input class="field" id="plateIn" value="${S.plate}" autocomplete="off" aria-label="차량번호">
+  <div class="opts"><button data-p="경북06보1234">경북06보1234</button><button data-p="경북06보5678">경북06보5678</button></div>
+  <div class="two"><button id="shX">취소</button><button class="go" id="shOk">저장</button></div>`);
+  document.querySelectorAll('[data-p]').forEach(b=>b.onclick=()=>{ $('plateIn').value=b.dataset.p; });
+  $('shX').onclick=close; $('shOk').onclick=()=>{ const v=$('plateIn').value.trim().replace(/\s+/g,''); if(v.length<7){ toast('차량번호를 확인해 주세요'); return; } const old=S.plate; S.plate=v; S.since=Date.now(); log('차량 변경 '+old+' → '+v,'설정'); save(); close(); render(); toast('차량번호를 '+v+'(으)로 바꿨습니다'); }; };
+const confirmEnd=()=>{ const r=S.run, now=Date.now();
+  sheet(`<h2>운행을 종료할까요?</h2>
+  <div class="sumgrid">
+    <div class="stat"><div class="k">시작 → 종료</div><div class="v num">${hm(r.start)} → ${hm(now)}</div></div>
+    <div class="stat"><div class="k">운행시간</div><div class="v">${durKo(now-r.start)}</div></div>
+    <div class="stat"><div class="k">주행 거리</div><div class="v num">${r.km.toFixed(1)} km</div></div>
+    <div class="stat"><div class="k">지점 도착</div><div class="v num">${r.stops}회</div></div>
+  </div>
+  <p class="hint">운반 횟수·톤수는 MES 실적으로 맞춥니다. 기사님이 따로 적을 것은 없습니다.</p>
+  <div class="two"><button id="shX">계속 운행</button><button class="go stop" id="shOk">종료</button></div>`);
+  $('shX').onclick=close; $('shOk').onclick=()=>{ close(); endRun(); }; };
+const swap=()=>{ let v=''; const draw=()=>{ sheet(`<h2>기사 교대</h2><p class="lead">같은 차량을 다른 기사님이 이어서 운행합니다. 새 사번을 누르세요.</p>
+  <div class="digits">${[...Array(6)].map((_,i)=>`<span class="${v[i]?'f':''}">${v[i]||''}</span>`).join('')}</div>
+  <div class="pad">${['1','2','3','4','5','6','7','8','9','취소','0','지움'].map(k=>`<button data-k="${k}" class="${k.length>1?'fn':''}">${k}</button>`).join('')}</div>
+  <button class="cta" id="swOk" ${v.length===6?'':'disabled'}>교대</button>`);
+  document.querySelectorAll('#sh .pad button').forEach(b=>b.onclick=()=>{ const k=b.dataset.k; if(k==='취소'){close();return;} if(k==='지움') v=v.slice(0,-1); else if(v.length<6) v+=k; draw(); });
+  $('swOk').onclick=()=>{ if(v.length!==6) return; close(); const prev=S.run.emp; endRun(); emp=v; startRun(); S.run.swaps.push({t:Date.now(),from:prev}); log('기사 교대 '+prev+' → '+v,'교대'); save(); render(); }; }; draw(); };
+
+// ───── 이벤트 연결 ─────
+const bind=()=>{
+  $('netTog').onclick=()=>{ S.net=!S.net; log(S.net?'네트워크 연결':'네트워크 끊김','연결'); save(); render(); if(online()) setTimeout(trySync,500); };
+  const sb=$('syncBtn'); if(sb) sb.onclick=trySync;
+  if(!S.run){
+    document.querySelectorAll('#pad button').forEach(b=>b.onclick=()=>{ const k=b.dataset.k; if(k==='지움') emp=emp.slice(0,-1); else if(k==='전체 지움') emp=''; else if(emp.length<6) emp+=k; render(); });
+    $('startBtn').onclick=()=>{ if(emp.length===6) startRun(); };
+    $('chgPlate').onclick=()=>askPin(editPlate);
+  } else {
+    $('endBtn').onclick=confirmEnd;
+    $('aWait').onclick=()=>choose('대기 사유',['상차 대기','계량 대기','하차 대기','작업 지시 대기'],v=>{ S.run.waits.push({t:Date.now(),v}); log('대기 사유 · '+v,'대기'); save(); render(); });
+    $('aMaint').onclick=()=>choose('정비 기록',['타이어','엔진오일','현가·축','브레이크','적재함','기타'],v=>{ S.run.maint.push({t:Date.now(),v}); log('정비 · '+v,'정비'); save(); render(); });
+    $('aSwap').onclick=swap;
+  }
+};
+
+// ───── 경로 그림 ─────
+const drawTrack=()=>{ const c=$('trk'); if(!c) return; const r=c.getBoundingClientRect(); const dpr=Math.min(2,devicePixelRatio||1); c.width=r.width*dpr; c.height=r.height*dpr; const g=c.getContext('2d'); g.scale(dpr,dpr);
+  const cs=getComputedStyle(document.documentElement); const ink=cs.getPropertyValue('--ink').trim(), ink3=cs.getPropertyValue('--ink3').trim(), run=cs.getPropertyValue('--run').trim(), line=cs.getPropertyValue('--line').trim();
+  const pts=ROUTE.concat(S.run?S.run.track:[]); const la=pts.map(p=>p[0]), lo=pts.map(p=>p[1]); const mnA=Math.min(...la),mxA=Math.max(...la),mnO=Math.min(...lo),mxO=Math.max(...lo);
+  const pad=24, sx=(r.width-pad*2)/((mxO-mnO)||1e-4), sy=(r.height-pad*2-14)/((mxA-mnA)||1e-4), s=Math.min(sx,sy*1.24);
+  const X=p=>pad+(p[1]-mnO)*s+((r.width-pad*2)-(mxO-mnO)*s)/2, Y=p=>pad+(mxA-p[0])*s/1.24+((r.height-pad*2-14)-(mxA-mnA)*s/1.24)/2;
+  g.strokeStyle=line; g.lineWidth=10; g.lineCap='round'; g.lineJoin='round'; g.beginPath(); ROUTE.forEach((p,i)=>i?g.lineTo(X(p),Y(p)):g.moveTo(X(p),Y(p))); g.stroke();
+  GEOF.forEach(f=>{ g.fillStyle=ink3; g.globalAlpha=.18; g.beginPath(); g.arc(X(f.p),Y(f.p),16,0,7); g.fill(); g.globalAlpha=1; g.fillStyle=ink3; g.font='600 12px '+getComputedStyle(document.body).fontFamily; g.fillText(f.n,X(f.p)-20,Y(f.p)-22); });
+  const t=S.run?S.run.track:[]; if(t.length){ g.strokeStyle=run; g.lineWidth=3; g.beginPath(); t.forEach((p,i)=>i?g.lineTo(X(p),Y(p)):g.moveTo(X(p),Y(p))); g.stroke(); const l=t[t.length-1]; g.fillStyle=ink; g.beginPath(); g.arc(X(l),Y(l),7,0,7); g.fill(); g.strokeStyle=run; g.lineWidth=3; g.stroke(); } };
+addEventListener('resize',()=>{ if(S.run) drawTrack(); });
+
+// ───── 1초마다 시계·수치 갱신 ─────
+setInterval(()=>{ const r=S.run; if(!r) return; const set=(id,v)=>{ const e=$(id); if(e) e.textContent=v; };
+  set('clock',dur(Date.now()-r.start)); set('sKm',r.km.toFixed(1)+' km'); set('sPts',r.pts+'개'); set('sFix',r.lastFix?hms(r.lastFix):'대기'); set('sSrc',gps.src); drawTrack(); if(r.pts%5===0) save(); },1000);
+
+if(S.run){ startGps(); keepAwake(true); }
+render();
+if('serviceWorker' in navigator && location.protocol==='https:' && !location.hostname.endsWith('claude.ai') && !location.hostname.endsWith('claudeusercontent.com')){ try{ navigator.serviceWorker.register('sw.js').catch(()=>{}); }catch(e){} }
+})();
+</script>
+
+</body></html>
